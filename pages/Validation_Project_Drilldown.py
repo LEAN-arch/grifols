@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from utils import generate_validation_portfolio_data, generate_pv_data
 
 st.set_page_config(
@@ -12,15 +13,6 @@ st.set_page_config(
 
 st.title("📑 Validation Project Drilldown")
 st.markdown("### A detailed view of a specific validation project, including its protocol, acceptance criteria, results, and final disposition.")
-
-with st.expander("🌐 My Role as SME: Ensuring Defensible Validation", expanded=True):
-    st.markdown("""
-    While the Command Center provides a high-level program overview, this dashboard allows me, as the Senior Manager and subject matter expert, to drill into the specifics of any single validation project. This is crucial for several of my core responsibilities:
-
-    - **Ensuring Appropriate Acceptance Criteria:** This view explicitly lists the pre-approved acceptance criteria from the validation protocol. I use this to confirm that our criteria are scientifically sound, justified, and meet regulatory expectations before we even begin the study.
-    - **Describing and Defending the Program:** During an audit or inspection, I can pull up this page for any given project and clearly walk the inspector through the protocol's intent, the pre-defined criteria, the results obtained, and the final conclusion. This provides a clear, concise, and defensible summary of the validation activity.
-    - **Leading Technical Discussions:** In meetings with my team or cross-functional partners, this dashboard serves as the focal point for discussing results, analyzing any deviations, and reaching a final conclusion on the success of the validation.
-    """)
 
 # --- Data Generation and Project Selection ---
 portfolio_df = generate_validation_portfolio_data()
@@ -48,55 +40,72 @@ col1.metric("Project Lead", project_details['Project Lead'])
 col2.metric("Product Line", project_details['Product Line'])
 col3.metric("Protocol ID", "VP-BTS-FILL-005")
 
-# Determine final status based on results
+# Determine final status and display with an icon
 final_status = "PASS" if not "FAIL" in pv_data['Result'].unique() else "FAIL - DEVIATION REQUIRED"
 if final_status == "PASS":
-    col4.success(f"**Final Status: {final_status}**")
+    col4.success(f"✔️ Final Status: {final_status}")
 else:
-    col4.error(f"**Final Status: {final_status}**")
+    col4.error(f"❌ Final Status: {final_status}")
 
 st.info(f"**Validation Objective:** To demonstrate that the DG Gel Card filling process consistently produces product meeting all pre-defined specifications and quality attributes across three consecutive, successful production-scale batches.")
-
 st.divider()
 
-# --- Acceptance Criteria & Results ---
+# --- Upgraded Visualization: Results Heatmap ---
 st.header("Acceptance Criteria & Batch Results")
-st.caption("Results from the three Process Validation batches are compared against the pre-approved acceptance criteria from the validation protocol.")
+st.caption("Results from the three Process Validation batches are compared against the pre-approved acceptance criteria. Red cells indicate a failure.")
 
-# Create a pivot table to show batches vs. parameters
-pivot_df = pv_data.pivot(index='Parameter', columns='Batch', values='Value').reset_index()
-
-# Add the spec column
+# Create a pivot table for the heatmap
+pivot_values = pv_data.pivot(index='Parameter', columns='Batch', values='Value')
+pivot_results = pv_data.pivot(index='Parameter', columns='Batch', values='Result')
 spec_map = pv_data[['Parameter', 'Spec']].drop_duplicates().set_index('Parameter')
-pivot_df = pivot_df.join(spec_map, on='Parameter')
+pivot_values = pivot_values.join(spec_map)
 
-# Add pass/fail styling
-def style_results(df):
-    styled_df = df.copy()
-    for batch in ['PV-Batch-01', 'PV-Batch-02', 'PV-Batch-03']:
-        pass_fail_series = pv_data[pv_data['Batch'] == batch].set_index('Parameter')['Result']
-        styled_df[batch] = styled_df[batch].astype(str) + " (" + pass_fail_series.reindex(styled_df['Parameter']).values + ")"
-    return styled_df
+# Create annotations for the heatmap
+annotations = []
+for r, row in enumerate(pivot_values.index):
+    for c, col in enumerate(pivot_values.columns):
+        if col != 'Spec':
+            value = pivot_values.loc[row, col]
+            result = pivot_results.loc[row, col]
+            annotations.append(dict(
+                text=f"{value:.2f}<br>({result})",
+                x=col, y=row,
+                xref='x1', yref='y1',
+                showarrow=False,
+                font=dict(color="white" if result == "FAIL" else "black")
+            ))
 
-# For now, just show the data clearly
-st.dataframe(
-    pivot_df[['Parameter', 'Spec', 'PV-Batch-01', 'PV-Batch-02', 'PV-Batch-03']],
-    use_container_width=True,
-    hide_index=True
+# Create the heatmap
+fig = go.Figure(data=go.Heatmap(
+    z=(pivot_results != 'PASS').astype(int), # 1 for FAIL, 0 for PASS
+    x=pivot_values.columns.drop('Spec'),
+    y=pivot_values.index,
+    colorscale=[[0, '#D4EDDA'], [1, '#DA291C']], # Green for PASS, Red for FAIL
+    showscale=False,
+    hovertemplate="<b>Parameter:</b> %{y}<br><b>Batch:</b> %{x}<br><b>Result:</b> %{text}<extra></extra>",
+    text=pivot_values.drop(columns='Spec').applymap(lambda x: f"{x:.2f}")
+))
+fig.update_layout(
+    title="Process Validation Results Summary",
+    height=400,
+    annotations=annotations
 )
+st.plotly_chart(fig, use_container_width=True)
+
+# Display specs table for reference
+st.caption("Reference: Acceptance Criteria")
+st.dataframe(spec_map, use_container_width=True)
 
 
-with st.expander("📝 My Role as Manager: Analysis and Conclusion"):
-    st.markdown(f"""
-    This drilldown view is precisely what I need to lead a technical review of a completed validation project.
-
-    #### Analysis of Results
-    - **Overall Outcome:** The project has a **FAIL** status. While most parameters for all three batches passed successfully, the `Final Potency Assay` for `PV-Batch-02` was 88%, which is outside the acceptance criterion of 90-110%.
-    - **Compliance Check:** This single failure means the process validation campaign, as a whole, did not meet its primary objective. A passing result requires three consecutive, successful batches.
-
-    #### My Actions as Senior Manager
-    1.  **Direct Investigation:** The "FAIL" status automatically triggers a formal deviation. I will direct the project lead, **Maria S.**, to lead the investigation into the root cause of the potency failure for the second batch. Was it a raw material issue? An operator error? An equipment malfunction?
-    2.  **Cross-Functional Collaboration:** I will convene a meeting with my partners in QC (who run the potency assay) and Manufacturing (who executed the batch) to ensure the investigation is thorough and scientifically sound.
-    3.  **Path Forward:** Once a root cause is confirmed and a corrective action is implemented (e.g., additional operator training, a change in a raw material specification), I will direct the team to draft a protocol to execute a new, replacement PV batch.
-    4.  **Defending the Program:** This entire process—identifying the failure, investigating, correcting, and re-validating—demonstrates a robust and compliant validation program. When I "describe and defend" this project to an auditor, I can show that our system worked as intended: it detected a failure and we took appropriate, documented action.
+with st.container(border=True):
+    st.header("Managerial Analysis & Decision")
+    st.markdown("""
+    - **Data-Driven Conclusion:** The results heatmap provides an immediate, unambiguous summary of the validation outcome. The bright red cell instantly draws attention to the single failure point. This is a powerful tool for leading a technical review.
+    
+    - **Clear Failure:** The project has a **FAIL** status. While most parameters for all three batches passed, the **`Final Potency Assay` for `PV-Batch-02` was 88%**, which is outside the acceptance criterion of 90-110%. Per our validation protocol, this means the campaign did not meet its primary objective.
+    
+    - **Action Plan:**
+        1.  **Direct Investigation:** The "FAIL" status requires a formal deviation to be initiated. I will direct the project lead, **Maria S.**, to take ownership of this deviation and to lead a thorough root cause investigation. My role is to provide her with the resources and support she needs to be successful.
+        2.  **Ensure Compliant Follow-up:** I am accountable for ensuring the investigation is robust and scientifically sound. I will "work closely with cross-functional partners" from QC and Manufacturing to ensure all potential causes are explored.
+        3.  **Strategic Next Steps:** Once a root cause is confirmed and a corrective action is implemented, my team will draft a protocol to execute a new, replacement PV batch. We cannot "describe and defend" this process as validated until we have three consecutive, successful batches. This entire, documented process demonstrates a compliant and robust validation program to regulatory authorities.
     """)
