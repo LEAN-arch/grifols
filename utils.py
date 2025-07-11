@@ -33,15 +33,16 @@ def generate_validation_portfolio_data():
             'New Antigen Test Tech Transfer',
             'DG Gel Card Filling Process Validation',
             'Eluate Buffer Formulation Process Improvement',
-            'Q1 2025 Requalification Activities'
+            'Q1 2025 Requalification Activities',
+            'Automate CPV Data Trending'
         ],
-        'Project Type': ['Re-validation', 'Tech Transfer', 'Process Validation', 'Process Improvement', 'Requalification'],
-        'Product Line': ['NAT', 'BTS', 'BTS', 'NAT', 'All'],
-        'Project Lead': ['Anna K.', 'David L.', 'Maria S.', 'Anna K.', 'David L.'],
-        'Status': ['In Progress', 'At Risk', 'Complete - On Time', 'In Progress', 'On Hold'],
-        'Start Date': [date(2024, 7, 1), date(2024, 5, 15), date(2024, 4, 1), date(2024, 8, 1), date(2025, 1, 1)],
-        'End Date': [date(2024, 11, 30), date(2024, 10, 31), date(2024, 7, 30), date(2024, 12, 15), date(2025, 3, 31)],
-        'Target Completion': [pd.to_datetime(d) for d in ['2024-11-30', '2024-10-15', '2024-07-30', '2024-12-15', '2025-03-31']]
+        'Project Type': ['Re-validation', 'Tech Transfer', 'Process Validation', 'Process Improvement', 'Requalification', 'Automation/Efficiency'],
+        'Product Line': ['NAT', 'BTS', 'BTS', 'NAT', 'All', 'All'],
+        'Project Lead': ['Anna K.', 'David L.', 'Maria S.', 'Anna K.', 'David L.', 'Maria S.'],
+        'Status': ['In Progress', 'At Risk', 'Complete - On Time', 'In Progress', 'On Hold', 'Not Started'],
+        'Start Date': [date(2024, 7, 1), date(2024, 5, 15), date(2024, 4, 1), date(2024, 8, 1), date(2025, 1, 1), date(2025, 1, 15)],
+        'End Date': [date(2024, 11, 30), date(2024, 10, 31), date(2024, 7, 30), date(2024, 12, 15), date(2025, 3, 31), date(2025, 6, 30)],
+        'Target Completion': [pd.to_datetime(d) for d in ['2024-11-30', '2024-10-15', '2024-07-30', '2024-12-15', '2025-03-31', '2025-06-30']]
     }
     df = pd.DataFrame(data)
     df['Start Date'] = pd.to_datetime(df['Start Date'])
@@ -54,7 +55,7 @@ def generate_program_risk_data():
         'Risk ID': ['RISK-RES-01', 'RISK-COMP-01', 'RISK-SUP-01', 'RISK-TRANS-01'],
         'Project': ['All', 'Panther Re-validation', 'DG Gel Card PV', 'New Antigen Transfer'],
         'Risk Description': [
-            'Key validation SME has high workload, creating a resource bottleneck.',
+            'Key validation SME (Anna K.) has high workload, creating a resource bottleneck.',
             'New FDA guidance on data integrity may require updates to existing validation packages.',
             'Single-source supplier for a critical raw material has quality system issues.',
             'CDMO partner for new antigen test has limited experience with the specific technology.'
@@ -74,6 +75,7 @@ def generate_staff_performance_data():
     data = {
         'Team Member': ['Anna K.', 'David L.', 'Maria S.', 'New Hire'],
         'Role': ['Principal Engineer', 'Senior Engineer', 'Engineer II', 'Engineer I'],
+        'Utilization (%)': [110, 90, 75, 50],
         'Q3 Goals Completed (%)': [100, 85, 95, 100],
         'Required Training Complete (%)': [100, 100, 90, 75],
         'Performance Review Status': ['Complete', 'Scheduled', 'Complete', 'Due'],
@@ -84,9 +86,9 @@ def generate_staff_performance_data():
 def generate_budget_data():
     """Generates departmental budget data for a manager."""
     data = {
-        'Category': ['Salaries & Benefits', 'Capital Equipment', 'Validation Consumables', 'External Testing/Consulting', 'Travel'],
-        'FY Budget ($K)': [1200, 500, 250, 150, 50],
-        'Actuals YTD ($K)': [950, 300, 225, 180, 25],
+        'Category': ['Salaries & Benefits', 'Capital Equipment', 'Validation Consumables', 'External Testing/Consulting', 'Travel', 'Training & Development'],
+        'FY Budget ($K)': [1200, 500, 250, 150, 50, 30],
+        'Actuals YTD ($K)': [950, 300, 225, 180, 25, 15],
     }
     df = pd.DataFrame(data)
     df['Variance ($K)'] = df['FY Budget ($K)'] - df['Actuals YTD ($K)']
@@ -128,25 +130,23 @@ def generate_doe_data():
     np.random.seed(42)
     temp_levels = np.array([-1, 1, -1, 1, 0, 0])
     ph_levels = np.array([-1, -1, 1, 1, 0, 0])
-    temp_real = temp_levels * 5 + 25  # e.g., 20-30 °C
-    ph_real = ph_levels * 0.1 + 7.4 # e.g., 7.3-7.5
-    
-    # Response: Stability after 30 days (% Initial Potency)
+    temp_real = temp_levels * 5 + 25
+    ph_real = ph_levels * 0.1 + 7.4
     true_stability = 98 - (2 * ph_levels**2) - (1 * temp_levels**2)
     measured_stability = true_stability + np.random.normal(0, 0.5, len(temp_real))
     return pd.DataFrame({'Temperature (°C)': temp_real, 'pH': ph_real, 'Stability (% Initial)': measured_stability})
 
 # === OPERATIONAL EXCELLENCE DATA ===
-def generate_opex_data():
-    """Generates data for tracking Operational Excellence initiatives."""
+def generate_improvement_data():
+    """Generates data for tracking process improvement initiatives."""
     data = {
-        'Initiative ID': ['OPEX-01', 'OPEX-02', 'OPEX-03'],
-        'Initiative Name': ['5S Implementation in Validation Lab', 'Reduce Re-work in Doc Review', 'Standardize Tech Transfer Template'],
-        'Lead': ['Maria S.', 'David L.', 'Anna K.'],
-        'Type': ['5S', 'Lean (Waste Reduction)', 'Standardization'],
-        'Status': ['Complete', 'In Progress', 'In Progress'],
-        'KPI Impacted': ['Lab Audit Score', 'Document Cycle Time', 'Transfer Project Duration'],
-        'Target Completion': [pd.to_datetime('2024-06-30'), pd.to_datetime('2024-09-30'), pd.to_datetime('2024-12-31')]
+        'Initiative ID': ['PI-24-001', 'PI-24-002', 'PI-24-003', 'PI-24-004'],
+        'Initiative Name': ['Standardize Tech Transfer Template', 'Reduce Re-work in Doc Review', '5S Implementation in Validation Lab', 'Automate CPV Data Trending'],
+        'Lead': ['Anna K.', 'David L.', 'Maria S.', 'Anna K.'],
+        'Improvement Type': ['Standardization', 'Lean (Waste Reduction)', '5S', 'Automation/Efficiency'],
+        'Business Driver': ['Reduce Transfer Time', 'Improve Cycle Time', 'Enhance Safety & Compliance', 'Improve Data Integrity'],
+        'Status': ['In Progress', 'In Progress', 'Complete', 'Not Started'],
+        'Target Completion': [pd.to_datetime('2024-12-31'), pd.to_datetime('2024-09-30'), pd.to_datetime('2024-06-30'), pd.to_datetime('2025-03-31')]
     }
     return pd.DataFrame(data)
 
@@ -160,6 +160,8 @@ def generate_revalidation_data():
         'Last Validation Date': [today - timedelta(days=3*365), today - timedelta(days=2*365), today - timedelta(days=300), today - timedelta(days=5*365)],
         'Revalidation Interval (Years)': [3, 2, 1, 5],
         'Status': ['Due', 'OK', 'OK', 'Due'],
+        'Risk Score': [9, 7, 5, 8],
+        'Complexity': ['High', 'High', 'Low', 'High'],
         'Next Assessment Due': [(pd.to_datetime(d) + pd.DateOffset(years=i)) for d, i in zip(
             [today - timedelta(days=3*365), today - timedelta(days=2*365), today - timedelta(days=300), today - timedelta(days=5*365)],
             [3, 2, 1, 5]
