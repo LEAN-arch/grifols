@@ -4,24 +4,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+# FIX: Import the single source of truth from utils.py
+from utils import generate_improvement_data
 
-# Upgraded data generation for more insightful plots
-def generate_improvement_data():
-    """Generates data for tracking process improvement initiatives."""
-    data = {
-        'Initiative ID': ['PI-24-001', 'PI-24-002', 'PI-24-003', 'PI-24-004'],
-        'Initiative Name': ['Standardize Tech Transfer Template', 'Reduce Re-work in Doc Review', '5S Implementation in Validation Lab', 'Automate CPV Data Trending'],
-        'Lead': ['Anna K.', 'David L.', 'Maria S.', 'Anna K.'],
-        'Improvement Type': ['Standardization', 'Lean', '5S', 'Automation'],
-        'Status': ['In Progress', 'In Progress', 'Complete', 'Planned'],
-        'Progress (%)': [40, 75, 100, 0],
-        'Impact': ['High', 'High', 'Medium', 'High'], # High, Medium, Low
-        'Effort': ['High', 'Medium', 'Low', 'High'], # High, Medium, Low
-        'Budget ($K)': [25, 15, 5, 50]
-    }
-    return pd.DataFrame(data)
-
-improvement_df = generate_improvement_data()
+# FIX: Removed the local, redundant data generation function
 
 st.set_page_config(
     page_title="Process Improvement | Grifols",
@@ -30,6 +16,10 @@ st.set_page_config(
 
 st.title("🚀 Process Improvement Tracker")
 st.markdown("### Directing and tracking initiatives to enhance the efficiency, compliance, and robustness of our validation and manufacturing processes.")
+
+# --- Data Generation from central utility ---
+improvement_df = generate_improvement_data()
+
 
 # --- OpEx Program KPIs ---
 st.header("Process Improvement Program KPIs")
