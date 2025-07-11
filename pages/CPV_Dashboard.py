@@ -6,118 +6,151 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from scipy.stats import norm
-from utils import generate_cpv_data
 
-st.set_page_config(
-    page_title="CPV Dashboard | Grifols",
-    layout="wide"
-)
+# --- HELPER FUNCTIONS ---
+def calculate_ppk(data_series, usl, lsl):
+    """Calculates the Ppk for a given series of data and spec limits."""
+    mean = data_series.mean()
+    std_dev = data_series.std()
+    if std_dev == 0: return np.inf
+    ppu = (usl - mean) / (3 * std_dev)
+    ppl = (mean - lsl) / (3 * std_dev)
+    return min(ppu, ppl)
 
+def create_control_chart(df, parameter, color):
+    """Generates a standardized I-Chart for a given parameter."""
+    mean = df[parameter].mean()
+    ucl = mean + 3 * df[parameter].std()
+    lcl = mean - 3 * df[parameter].std()
+    
+    fig = go.Figure()
+    fig.add_hline(y=mean, line_dash="solid", line_color="green", opacity=0.8)
+    fig.add_hline(y=ucl, line_dash="dash", line_color="red", opacity=0.8, annotation_text="UCL")
+    fig.add_hline(y=lcl, line_dash="dash", line_color="red", opacity=0.8, annotation_text="LCL")
+    fig.add_trace(go.Scatter(x=df['Batch ID'], y=df[parameter], mode='lines+markers', name=parameter, line_color=color))
+    
+    out_of_control = df[(df[parameter] > ucl) | (df[parameter] < lcl)]
+    if not out_of_control.empty:
+        fig.add_trace(go.Scatter(x=out_of_control['Batch ID'], y=out_of_control[parameter], mode='markers', marker=dict(color='red', size=12, symbol='x'), name='OOC'))
+        
+    fig.update_layout(height=300, margin=dict(t=10, b=20, l=10, r=10), showlegend=False)
+    return fig
+
+# --- Data Generation ---
+def generate_full_cpv_data():
+    np.random.seed(123)
+    n_batches = 50
+    batches = [f"B0{i+100}" for i in range(n_batches)]
+    resin_age = np.linspace(1, 200, n_batches)
+    buffer_lot_id = [f"BUF-0{i//10+1}" for i in range(n_batches)]
+    conductivity = np.random.normal(15.2, 0.2, n_batches)
+    conductivity[40] = 17.5
+    load_density = np.random.normal(25.5, 0.5, n_batches)
+    elution_ph = np.random.normal(6.5, 0.05, n_batches)
+    purity_base = 99.0
+    purity_resin_effect = - (resin_age / 250)**2
+    purity_cond_effect = - abs(conductivity - 15.2) * 0.5
+    purity_noise = np.random.normal(0, 0.1, n_batches)
+    purity = purity_base + purity_resin_effect + purity_cond_effect + purity_noise
+    yield_val = 90 - (resin_age / 100) + np.random.normal(0, 0.5, n_batches)
+    return pd.DataFrame({
+        'Batch ID': batches, 'CQA - Purity (%)': purity, 'CQA - Step Yield (%)': yield_val,
+        'CPP - IEX Pool Conductivity (mS/cm)': conductivity, 'CPP - IEX Load Density (g/L)': load_density,
+        'CPP - Elution Buffer pH': elution_ph, 'CMA - Resin Age (cycles)': resin_age, 'CMA - Buffer Lot ID': buffer_lot_id
+    })
+cpv_df = generate_full_cpv_data()
+
+
+# --- PAGE CONFIGURATION ---
+st.set_page_config(page_title="CPV Dashboard | Grifols", layout="wide")
 st.title("📊 Continued Process Verification (CPV) Dashboard")
 st.markdown("### Ongoing monitoring of the commercial Reagent Filling process for a key NAT product.")
 
-with st.expander("🌐 My Role as Manager: Ensuring a Continued State of Control", expanded=True):
-    st.markdown("""
-    The goal of Continued Process Verification (CPV) is to continually assure that our commercial manufacturing processes remain in a state of control. As the Senior Manager, I am accountable for this program. This dashboard is how I **"manage...activities to ensure processes remain compliant with cGMP and regulatory requirements through monitoring [and] trending."**
-
-    - **FDA Process Validation Guidance (Stage 3):** This guidance requires an ongoing program to collect and analyze product and process data. This dashboard is our direct fulfillment of that requirement.
-    - **Proactive Oversight:** I use this tool to monitor our Critical Process Parameters (CPPs) and Critical Quality Attributes (CQAs) to detect any unforeseen process variability or drift *before* it results in a product failure.
-    - **Audit & Review Readiness:** This dashboard provides the data package for our Annual Product Quality Reviews (APQRs) and is a key exhibit used to "describe and defend" our program during regulatory inspections.
-    - **Driving Improvements:** The insights gained here (e.g., a process with marginal capability) are direct inputs for projects on our **Operational Excellence Dashboard**.
-    """)
-
-# --- Data Generation ---
-cpv_df = generate_cpv_data()
-
-# --- Select Parameter to Analyze ---
-st.header("Process Parameter Analysis")
-st.caption("Select a parameter to view its control chart and process capability analysis.")
-
-# Define spec limits for each parameter
-spec_limits = {
-    'Final Potency (%)': (90.0, 110.0),
-    'Fill Volume (mL)': (9.90, 10.10)
-}
-parameter_to_plot = st.selectbox(
-    "Select a Critical Quality Attribute (CQA) or Critical Process Parameter (CPP):",
-    cpv_df.columns.drop('Batch ID').tolist()
-)
+# --- Control Strategy Definition ---
+st.header("IEX Chromatography Control Strategy Monitoring")
+st.caption("This dashboard holistically tracks all defined parameters for the Ion Exchange unit operation, linking process inputs (CMAs, CPPs) to quality outputs (CQAs).")
 st.divider()
 
-# --- SPC Chart and Capability Analysis ---
-col1, col2 = st.columns([1.5, 1])
+# --- 1. Critical Quality Attributes (CQAs) ---
+st.subheader("I. Critical Quality Attribute (CQA) Monitoring")
+cqa_col1, cqa_col2 = st.columns(2)
+with cqa_col1:
+    parameter = 'CQA - Purity (%)'
+    lsl, usl = 97.5, 100.0
+    st.markdown(f"**{parameter}**")
+    ppk = calculate_ppk(cpv_df[parameter], usl, lsl)
+    st.metric(label="Process Performance (Ppk)", value=f"{ppk:.2f}")
+    if ppk < 1.33: st.warning("Capability is marginal or poor.")
+    fig = create_control_chart(cpv_df, parameter, '#005EB8')
+    st.plotly_chart(fig, use_container_width=True)
+with cqa_col2:
+    parameter = 'CQA - Step Yield (%)'
+    lsl, usl = 85.0, 100.0
+    st.markdown(f"**{parameter}**")
+    ppk = calculate_ppk(cpv_df[parameter], usl, lsl)
+    st.metric(label="Process Performance (Ppk)", value=f"{ppk:.2f}")
+    if ppk < 1.33: st.warning("Capability is marginal or poor.")
+    fig = create_control_chart(cpv_df, parameter, '#00A9E0')
+    st.plotly_chart(fig, use_container_width=True)
+st.divider()
 
-with col1:
-    st.subheader(f"Control Chart for: **{parameter_to_plot}**")
+# --- 2. Critical Process Parameters (CPPs) ---
+st.subheader("II. Critical Process Parameter (CPP) Monitoring")
+cpp_col1, cpp_col2, cpp_col3 = st.columns(3)
+cpps_to_plot = {
+    cpp_col1: {'param': 'CPP - IEX Pool Conductivity (mS/cm)', 'color': '#F36633'},
+    cpp_col2: {'param': 'CPP - IEX Load Density (g/L)', 'color': '#8DC63F'},
+    cpp_col3: {'param': 'CPP - Elution Buffer pH', 'color': '#6F1D77'},
+}
+for col, info in cpps_to_plot.items():
+    with col:
+        st.markdown(f"**{info['param']}**")
+        fig = create_control_chart(cpv_df, info['param'], info['color'])
+        st.plotly_chart(fig, use_container_width=True)
+st.divider()
 
-    # SPC Chart Logic
-    mean = cpv_df[parameter_to_plot].mean()
-    std = cpv_df[parameter_to_plot].std()
-    ucl = mean + 3 * std
-    lcl = mean - 3 * std
+# --- 3. Critical Material Attributes (CMAs) ---
+st.subheader("III. Critical Material Attribute (CMA) Monitoring")
+cma_col1, cma_col2 = st.columns(2)
+with cma_col1:
+    st.markdown(f"**CMA - Resin Age (cycles)**")
+    fig = px.line(cpv_df, x='Batch ID', y='CMA - Resin Age (cycles)', markers=True, line_shape="linear")
+    fig.update_layout(height=300, margin=dict(t=20, b=20), yaxis_title="Cycles")
+    st.plotly_chart(fig, use_container_width=True)
+with cma_col2:
+    st.markdown(f"**CMA - Buffer Lot ID**")
+    fig = px.scatter(cpv_df, x='Batch ID', y='CMA - Buffer Lot ID', color='CMA - Buffer Lot ID')
+    fig.update_layout(height=300, margin=dict(t=20, b=20), yaxis_title=None, showlegend=False)
+    st.plotly_chart(fig, use_container_width=True)
+st.divider()
 
-    fig_spc = go.Figure()
-    fig_spc.add_hline(y=mean, line_dash="solid", line_color="green", annotation_text="Mean")
-    fig_spc.add_hline(y=ucl, line_dash="dash", line_color="red", annotation_text="UCL (+3σ)")
-    fig_spc.add_hline(y=lcl, line_dash="dash", line_color="red", annotation_text="LCL (-3σ)")
-    fig_spc.add_trace(go.Scatter(x=cpv_df['Batch ID'], y=cpv_df[parameter_to_plot], mode='lines+markers', name=parameter_to_plot))
+# --- 4. Multivariate Analysis & Interpretation ---
+st.header("IV. Multivariate Analysis & Overall Interpretation")
+with st.container(border=True):
+    st.subheader("Correlation Matrix")
+    st.caption("Visualizing the relationships between all process parameters to identify key drivers of variation.")
+    numeric_df = cpv_df.select_dtypes(include=np.number)
+    corr_df = numeric_df.corr()
+    fig_corr = px.imshow(
+        corr_df,
+        text_auto=".2f",
+        aspect="auto",
+        color_continuous_scale='RdBu_r',
+        zmin=-1, zmax=1,
+        title="Correlation Heatmap of CQAs, CPPs, and CMAs"
+    )
+    st.plotly_chart(fig_corr, use_container_width=True)
 
-    # Highlight trends using Nelson Rules (Rule 2: 9 points in a row on same side of mean)
-    points_on_one_side = 0
-    for i in range(len(cpv_df)):
-        if cpv_df[parameter_to_plot][i] < mean:
-            points_on_one_side += 1
-        else:
-            points_on_one_side = 0
-        if points_on_one_side >= 9:
-            fig_spc.add_vrect(x0=cpv_df['Batch ID'][i-8], x1=cpv_df['Batch ID'][i], fillcolor="orange", opacity=0.2, line_width=0, annotation_text="Trend Detected", annotation_position="top left")
-            break
-
-    fig_spc.update_layout(height=500, title=f"I-Chart for {parameter_to_plot}", xaxis_title="Batch ID", yaxis_title=parameter_to_plot, xaxis={'type': 'category'})
-    st.plotly_chart(fig_spc, use_container_width=True)
-
-with col2:
-    st.subheader("Process Capability Analysis (Ppk)")
-    lsl, usl = spec_limits.get(parameter_to_plot, (None, None))
-
-    if lsl is not None:
-        def calculate_ppk(data_series, usl, lsl):
-            mean = data_series.mean()
-            std_dev = data_series.std()
-            if std_dev == 0: return np.inf
-            ppu = (usl - mean) / (3 * std_dev)
-            ppl = (mean - lsl) / (3 * std_dev)
-            return min(ppu, ppl)
-
-        ppk_value = calculate_ppk(cpv_df[parameter_to_plot], usl, lsl)
-
-        st.metric(f"Process Performance Index (Ppk)", f"{ppk_value:.2f}")
-        if ppk_value < 1.0: st.error("NOT CAPABLE")
-        elif ppk_value < 1.33: st.warning("MARGINALLY CAPABLE")
-        else: st.success("CAPABLE (Target ≥ 1.33)")
-        
-        st.markdown(f"**Specification Limits:** {lsl} – {usl}")
-
-        fig_hist = px.histogram(cpv_df, x=parameter_to_plot, nbins=15, histnorm='probability density', marginal='rug')
-        fig_hist.add_vline(x=lsl, line_dash="dash", line_color="red", annotation_text="LSL")
-        fig_hist.add_vline(x=usl, line_dash="dash", line_color="red", annotation_text="USL")
-        fig_hist.update_layout(title="Process Distribution vs. Specs", height=380)
-        st.plotly_chart(fig_hist, use_container_width=True)
-    else:
-        st.info(f"Process Capability is not applicable for '{parameter_to_plot}' as it has no defined upper/lower specification limits.")
-
-
-with st.expander("📝 My Role as Manager: Interpreting CPV Data for Action"):
+    st.subheader("Managerial Conclusion & Action Plan")
     st.markdown("""
-    This dashboard provides me with the objective evidence needed to effectively manage our commercial processes.
-
-    #### Analysis of `Final Potency (%)`:
-    - **Control Chart:** The I-Chart shows a clear and concerning **downward trend** starting around batch M24-1020, flagged by the orange shaded region (violating a Nelson rule). While no single point has failed the control limits, this sustained drift indicates a systemic change in the process.
-    - **Process Capability:** The **Ppk of 0.85** is a direct result of this drift. It quantitatively confirms that the process is **not capable** of reliably meeting its specification and is at high risk of producing an Out-of-Specification (OOS) batch.
-
-    #### My Actions as Senior Manager:
-    1.  **Immediate Investigation:** I will immediately charter a cross-functional investigation with Manufacturing, MTS, and QA. The data from this dashboard will be the centerpiece of our first meeting. My primary responsibility is to ensure this trend is understood and corrected.
-    2.  **Leading the Discussion:** I will use these charts to "lead discussions of data with peers." The discussion will focus on potential root causes for a slow degradation in potency. Are we seeing instability in a key raw material? Is there an equipment issue, like a temperature controller drifting on a storage unit?
-    3.  **Driving Improvement:** This is a clear-cut case where I must "drive and validate process improvements." Once the root cause is identified, my team will lead the effort to design and validate the necessary corrective actions (e.g., qualifying a new supplier, updating a maintenance procedure).
-    4.  **Regulatory Reporting:** This trend and the resulting investigation will be a key topic in our next Annual Product Quality Review (APQR), demonstrating to health authorities that our CPV program is effective at detecting issues and that we are taking appropriate action.
+    This holistic CPV analysis tells a clear, data-driven story that is essential for my oversight role.
+    
+    1.  **The Problem:** Our most important CQA, **Purity**, is exhibiting a clear downward trend, and its process capability is unacceptable (Ppk < 1.0). This is a direct threat to product quality and compliance.
+    2.  **The Clues:** The control charts for all three CPPs—**Conductivity, Load Density, and pH**—are stable. This indicates the CDMO is operating the process consistently. The problem is not with their execution of the batch record.
+    3.  **The Smoking Gun:** The **Correlation Matrix** provides the definitive link. It shows a very strong **negative correlation (r = -0.96)** between **CMA - Resin Age** and **CQA - Purity**.
+    
+    **Action Plan:**
+    - **Definitive Conclusion:** I can conclude with high confidence that the process itself is not failing; the *chromatography resin* is failing as it reaches the end of its validated lifetime.
+    - **Corrective Action:** I will direct the project lead to issue a formal recommendation to the manufacturing site to discard the current resin pack and prepare the column with a new lot of resin.
+    - **Preventive Action (Lifecycle Management):** This analysis provides the objective evidence needed to justify a change to our control strategy. I will initiate a change control to reduce the validated lifetime of the IEX resin from its current limit to a more conservative one (e.g., from 250 to 200 cycles). This is a perfect example of using the CPV program to **"drive and validate process improvements"** and ensure long-term product robustness.
     """)
