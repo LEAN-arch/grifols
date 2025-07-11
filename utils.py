@@ -137,18 +137,24 @@ def generate_doe_data():
     return pd.DataFrame({'Temperature (°C)': temp_real, 'pH': ph_real, 'Stability (% Initial)': measured_stability})
 
 # === OPERATIONAL EXCELLENCE DATA ===
+# FIX: Updated function to include all necessary columns for the OpEx dashboard
 def generate_improvement_data():
     """Generates data for tracking process improvement initiatives."""
     data = {
         'Initiative ID': ['PI-24-001', 'PI-24-002', 'PI-24-003', 'PI-24-004'],
         'Initiative Name': ['Standardize Tech Transfer Template', 'Reduce Re-work in Doc Review', '5S Implementation in Validation Lab', 'Automate CPV Data Trending'],
         'Lead': ['Anna K.', 'David L.', 'Maria S.', 'Anna K.'],
-        'Improvement Type': ['Standardization', 'Lean (Waste Reduction)', '5S', 'Automation/Efficiency'],
+        'Improvement Type': ['Standardization', 'Lean', '5S', 'Automation'],
         'Business Driver': ['Reduce Transfer Time', 'Improve Cycle Time', 'Enhance Safety & Compliance', 'Improve Data Integrity'],
-        'Status': ['In Progress', 'In Progress', 'Complete', 'Not Started'],
+        'Status': ['In Progress', 'In Progress', 'Complete', 'Planned'],
+        'Progress (%)': [40, 75, 100, 0],
+        'Impact': ['High', 'High', 'Medium', 'High'], # High, Medium, Low
+        'Effort': ['High', 'Medium', 'Low', 'High'], # High, Medium, Low
+        'Budget ($K)': [25, 15, 5, 50],
         'Target Completion': [pd.to_datetime('2024-12-31'), pd.to_datetime('2024-09-30'), pd.to_datetime('2024-06-30'), pd.to_datetime('2025-03-31')]
     }
     return pd.DataFrame(data)
+
 
 # === REVALIDATION TRACKER DATA ===
 def generate_revalidation_data():
