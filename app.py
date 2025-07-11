@@ -1,4 +1,5 @@
 # app.py
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -128,34 +129,103 @@ with col_gantt:
     fig.update_layout(height=600)
     st.plotly_chart(fig, use_container_width=True)
 
+# --- START: Updated Risk Visualization Block ---
 with col_risk:
-    st.header("Program Risk Heatmap")
-    st.caption("Prioritizing risks to compliance and timelines based on impact and probability.")
-    
-    risk_pivot = risks_df.pivot_table(index='Impact', columns='Probability', values='Risk Score', aggfunc='count').fillna(0)
-    risk_text = risks_df.pivot_table(index='Impact', columns='Probability', values='Risk ID', aggfunc=lambda x: '<br>'.join(x)).fillna('')
+    st.header("Program Risk Bubble Matrix")
+    st.caption("Prioritizing risks based on impact and probability. Color indicates max severity; size indicates volume.")
 
-    fig_risk = go.Figure(data=go.Heatmap(
-        z=risk_pivot.values, x=risk_pivot.columns, y=risk_pivot.index,
-        colorscale='YlOrRd', text=risk_text,
-        hovertemplate='<b>Risk IDs:</b><br>%{text}<br><b>Impact:</b> %{y}<br><b>Probability:</b> %{x}<extra></extra>'
+    # 1. Aggregate risk data for the bubble matrix
+    # We need to group by Impact/Probability to create the bubbles
+    risk_agg = risks_df.groupby(['Impact', 'Probability']).apply(lambda g: pd.Series({
+        'Risk Count': len(g),
+        'Max Risk Score': g['Risk Score'].max(),
+        'Risk Details': '<br>'.join(f"<b>{row['Risk ID']}</b> (Score: {row['Risk Score']}): {row['Risk Description']}"
+                                    for _, row in g.iterrows())
+    })).reset_index()
+
+    # 2. Create the advanced bubble matrix plot
+    fig_risk = go.Figure()
+
+    # Add background color shapes for risk levels
+    # Green Zone (Low Risk)
+    fig_risk.add_shape(type="rect", xref="x", yref="y", x0=0.5, y0=0.5, x1=3.5, y1=3.5,
+                      fillcolor="rgba(0, 122, 51, 0.1)", line_color="rgba(0, 122, 51, 0.3)")
+    # Yellow Zone (Medium Risk)
+    fig_risk.add_shape(type="rect", xref="x", yref="y", x0=3.5, y0=0.5, x1=5.5, y1=3.5,
+                      fillcolor="rgba(255, 199, 44, 0.1)", line_color="rgba(255, 199, 44, 0.3)")
+    fig_risk.add_shape(type="rect", xref="x", yref="y", x0=0.5, y0=3.5, x1=3.5, y1=5.5,
+                      fillcolor="rgba(255, 199, 44, 0.1)", line_color="rgba(255, 199, 44, 0.3)")
+    # Red Zone (High Risk)
+    fig_risk.add_shape(type="rect", xref="x", yref="y", x0=3.5, y0=3.5, x1=5.5, y1=5.5,
+                      fillcolor="rgba(218, 41, 28, 0.15)", line_color="rgba(218, 41, 28, 0.4)")
+
+    # Add the scatter plot trace (the bubbles)
+    fig_risk.add_trace(go.Scatter(
+        x=risk_agg['Probability'],
+        y=risk_agg['Impact'],
+        mode='markers+text',
+        marker=dict(
+            color=risk_agg['Max Risk Score'],
+            colorscale='YlOrRd',
+            size=risk_agg['Risk Count'] * 20,  # Scale size by count
+            sizemin=15,
+            showscale=True,
+            colorbar=dict(title='Max Risk Score', x=1.15),
+            line=dict(width=1, color='DarkSlateGrey')
+        ),
+        text=risk_agg['Risk Count'], # Show the count number inside the bubble
+        textfont=dict(color='black', size=14),
+        hovertext=risk_agg['Risk Details'],
+        hovertemplate=(
+            "<b>Impact:</b> %{y}<br>"
+            "<b>Probability:</b> %{x}<br>"
+            "<b>Risk Count:</b> %{marker.size:,}<br>" # A bit of a hack to show the original count
+            "<hr><b>Risks in this Category:</b><br>%{hovertext}<extra></extra>"
+        )
     ))
-    fig_risk.update_layout(
-        title="Risk Heatmap (Count of Risks per Category)", xaxis_title="Probability", yaxis_title="Impact",
-        height=600,
-        xaxis=dict(tickmode='array', tickvals=[1, 2, 3, 4, 5], ticktext=['Remote', 'Unlikely', 'Possible', 'Likely', 'Certain']),
-        yaxis=dict(tickmode='array', tickvals=[1, 2, 3, 4, 5], ticktext=['Negligible', 'Minor', 'Moderate', 'Major', 'Critical'], autorange="reversed")
-    )
-    st.plotly_chart(fig_risk, use_container_width=True)
 
+    # Clean up the marker size in the hovertemplate
+    fig_risk.update_traces(
+        hovertemplate=fig_risk.hovertemplates[0].replace('%{marker.size:,}', risk_agg['Risk Count'].astype(str))
+    )
+    
+    # 3. Final layout styling
+    fig_risk.update_layout(
+        title="Risk Matrix: Severity (Color), Volume (Size), and Impact",
+        xaxis_title="Probability",
+        yaxis_title="Impact",
+        height=600,
+        plot_bgcolor='#FFFFFF',
+        xaxis=dict(
+            tickmode='array',
+            tickvals=[1, 2, 3, 4, 5],
+            ticktext=['Remote', 'Unlikely', 'Possible', 'Likely', 'Certain'],
+            range=[0.5, 5.5],
+            showgrid=True, gridcolor='rgba(0,0,0,0.1)'
+        ),
+        yaxis=dict(
+            tickmode='array',
+            tickvals=[1, 2, 3, 4, 5],
+            ticktext=['Negligible', 'Minor', 'Moderate', 'Major', 'Critical'],
+            autorange="reversed",
+            range=[5.5, 0.5],
+            showgrid=True, gridcolor='rgba(0,0,0,0.1)'
+        ),
+        showlegend=False,
+        margin=dict(t=50, l=50, r=50, b=50)
+    )
+
+    st.plotly_chart(fig_risk, use_container_width=True)
+# --- END: Updated Risk Visualization Block ---
+    
 st.divider()
 
 with st.container(border=True):
     st.header("Managerial Analysis & Action Plan")
     st.markdown("""
     - **Performance Analysis:** The visual KPIs provide an instant health check. While our **On-Time Completion Rate** is slightly below target, the more pressing issues are the **2 Projects At-Risk** and **2 Overdue Revalidations**. These represent immediate compliance and timeline risks.
-    - **Resource Allocation Insights:** The timeline, faceted by lead, clearly shows that **Anna K.** is managing two large, overlapping projects. This represents a **resource bottleneck** and a key-person dependency risk, which is also flagged as our single highest-priority risk on the heatmap.
-    - **Risk Mitigation Focus:** The heatmap instantly focuses our attention on the top-right quadrant. Our primary risk mitigation efforts must be directed at the resource bottleneck.
+    - **Resource Allocation Insights:** The timeline, faceted by lead, clearly shows that **Anna K.** is managing two large, overlapping projects. This represents a **resource bottleneck** and a key-person dependency risk, which is also flagged as our single highest-priority risk on the risk matrix.
+    - **Risk Mitigation Focus:** The risk matrix instantly focuses our attention on the top-right, red quadrant. Our primary risk mitigation efforts must be directed at the resource bottleneck.
     - **Strategic Action Plan:**
         1. **At-Risk Projects:** My top priority is to drill down into the two at-risk items using the dedicated dashboards to formulate mitigation plans with the team leads.
         2. **Resource Balancing:** I will meet with Anna K. to review her workload. The data strongly supports re-assigning one of her upcoming projects (e.g., the CPV Automation) to another team member, like Maria S., as a development opportunity. This addresses the risk and develops my team.
