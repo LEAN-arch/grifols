@@ -13,13 +13,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- Session State Initialization for Action Log ---
-if 'action_log' not in st.session_state:
-    st.session_state.action_log = pd.DataFrame(columns=[
-        "Action Item", "Source Dashboard", "Owner", "Due Date", "Status", "Notes"
-    ])
-
-
 # --- Data Loading ---
 portfolio_df = generate_validation_portfolio_data()
 risks_df = generate_program_risk_data()
