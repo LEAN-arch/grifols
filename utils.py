@@ -101,10 +101,13 @@ def generate_pv_data():
     batches = ['PV-Batch-01', 'PV-Batch-02', 'PV-Batch-03']
     data = []
     for batch in batches:
-        data.append({'Batch': batch, 'Parameter': 'Mixing Speed (RPM)', 'Value': np.random.normal(505, 5), 'Spec': '450-550 RPM'})
-        data.append({'Batch': batch, 'Parameter': 'Mixing Time (min)', 'Value': np.random.normal(62, 2), 'Spec': '60±5 min'})
-        data.append({'Batch': batch, 'Parameter': 'Final pH', 'Value': np.random.normal(7.41, 0.02), 'Spec': '7.40±0.05'})
-        data.append({'Batch': batch, 'Parameter': 'Final Potency Assay', 'Value': np.random.normal(103, 2), 'Spec': '90-110%'})
+        data.append({'Batch': batch, 'Parameter': 'Mixing Speed (RPM)', 'Value': np.random.normal(505, 5), 'Spec': '450-550 RPM', 'Result': 'PASS'})
+        data.append({'Batch': batch, 'Parameter': 'Mixing Time (min)', 'Value': np.random.normal(62, 2), 'Spec': '60±5 min', 'Result': 'PASS'})
+        data.append({'Batch': batch, 'Parameter': 'Final pH', 'Value': np.random.normal(7.41, 0.02), 'Spec': '7.40±0.05', 'Result': 'PASS'})
+        data.append({'Batch': batch, 'Parameter': 'Final Potency Assay', 'Value': np.random.normal(103, 2), 'Spec': '90-110%', 'Result': 'PASS'})
+    # Simulate one failure
+    data[7]['Value'] = 88
+    data[7]['Result'] = 'FAIL'
     return pd.DataFrame(data)
 
 def generate_cpv_data():
@@ -119,6 +122,19 @@ def generate_cpv_data():
     # Introduce a process drift
     df.loc[20:, 'Final Potency (%)'] -= np.linspace(0, 2.5, 10)
     return df
+
+def generate_doe_data():
+    """Generates DOE data for a formulation robustness study."""
+    np.random.seed(42)
+    temp_levels = np.array([-1, 1, -1, 1, 0, 0])
+    ph_levels = np.array([-1, -1, 1, 1, 0, 0])
+    temp_real = temp_levels * 5 + 25  # e.g., 20-30 °C
+    ph_real = ph_levels * 0.1 + 7.4 # e.g., 7.3-7.5
+    
+    # Response: Stability after 30 days (% Initial Potency)
+    true_stability = 98 - (2 * ph_levels**2) - (1 * temp_levels**2)
+    measured_stability = true_stability + np.random.normal(0, 0.5, len(temp_real))
+    return pd.DataFrame({'Temperature (°C)': temp_real, 'pH': ph_real, 'Stability (% Initial)': measured_stability})
 
 # === OPERATIONAL EXCELLENCE DATA ===
 def generate_opex_data():
