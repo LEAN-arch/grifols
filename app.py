@@ -129,33 +129,30 @@ with col_gantt:
     fig.update_layout(height=600)
     st.plotly_chart(fig, use_container_width=True)
 
-# --- START: Updated Risk Visualization Block ---
+# --- START: Updated and Corrected Risk Visualization Block ---
 with col_risk:
     st.header("Program Risk Bubble Matrix")
     st.caption("Prioritizing risks based on impact and probability. Color indicates max severity; size indicates volume.")
 
     # 1. Aggregate risk data for the bubble matrix
-    # We need to group by Impact/Probability to create the bubbles
+    # Added include_groups=False to address the FutureWarning
     risk_agg = risks_df.groupby(['Impact', 'Probability']).apply(lambda g: pd.Series({
         'Risk Count': len(g),
         'Max Risk Score': g['Risk Score'].max(),
         'Risk Details': '<br>'.join(f"<b>{row['Risk ID']}</b> (Score: {row['Risk Score']}): {row['Risk Description']}"
                                     for _, row in g.iterrows())
-    })).reset_index()
+    }), include_groups=False).reset_index()
 
     # 2. Create the advanced bubble matrix plot
     fig_risk = go.Figure()
 
     # Add background color shapes for risk levels
-    # Green Zone (Low Risk)
     fig_risk.add_shape(type="rect", xref="x", yref="y", x0=0.5, y0=0.5, x1=3.5, y1=3.5,
                       fillcolor="rgba(0, 122, 51, 0.1)", line_color="rgba(0, 122, 51, 0.3)")
-    # Yellow Zone (Medium Risk)
     fig_risk.add_shape(type="rect", xref="x", yref="y", x0=3.5, y0=0.5, x1=5.5, y1=3.5,
                       fillcolor="rgba(255, 199, 44, 0.1)", line_color="rgba(255, 199, 44, 0.3)")
     fig_risk.add_shape(type="rect", xref="x", yref="y", x0=0.5, y0=3.5, x1=3.5, y1=5.5,
                       fillcolor="rgba(255, 199, 44, 0.1)", line_color="rgba(255, 199, 44, 0.3)")
-    # Red Zone (High Risk)
     fig_risk.add_shape(type="rect", xref="x", yref="y", x0=3.5, y0=3.5, x1=5.5, y1=5.5,
                       fillcolor="rgba(218, 41, 28, 0.15)", line_color="rgba(218, 41, 28, 0.4)")
 
@@ -167,27 +164,25 @@ with col_risk:
         marker=dict(
             color=risk_agg['Max Risk Score'],
             colorscale='YlOrRd',
-            size=risk_agg['Risk Count'] * 20,  # Scale size by count
+            size=risk_agg['Risk Count'] * 20,
             sizemin=15,
             showscale=True,
             colorbar=dict(title='Max Risk Score', x=1.15),
             line=dict(width=1, color='DarkSlateGrey')
         ),
-        text=risk_agg['Risk Count'], # Show the count number inside the bubble
+        text=risk_agg['Risk Count'],
         textfont=dict(color='black', size=14),
+        # FIX: Use customdata to hold the original risk count for the hovertemplate
+        customdata=risk_agg['Risk Count'],
         hovertext=risk_agg['Risk Details'],
         hovertemplate=(
             "<b>Impact:</b> %{y}<br>"
             "<b>Probability:</b> %{x}<br>"
-            "<b>Risk Count:</b> %{marker.size:,}<br>" # A bit of a hack to show the original count
+            # FIX: Reference customdata instead of the scaled marker.size
+            "<b>Risk Count:</b> %{customdata}<br>"
             "<hr><b>Risks in this Category:</b><br>%{hovertext}<extra></extra>"
         )
     ))
-
-    # Clean up the marker size in the hovertemplate
-    fig_risk.update_traces(
-        hovertemplate=fig_risk.hovertemplates[0].replace('%{marker.size:,}', risk_agg['Risk Count'].astype(str))
-    )
     
     # 3. Final layout styling
     fig_risk.update_layout(
@@ -216,7 +211,7 @@ with col_risk:
     )
 
     st.plotly_chart(fig_risk, use_container_width=True)
-# --- END: Updated Risk Visualization Block ---
+# --- END: Updated and Corrected Risk Visualization Block ---
     
 st.divider()
 
