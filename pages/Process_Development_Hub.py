@@ -88,13 +88,24 @@ fig.add_trace(go.Scatter(
     mode='markers', marker=dict(color='black', symbol='diamond-open', size=8), name='DOE Points'
 ), row=1, col=2)
 
+
+# --- START: Corrected fig.update_layout block ---
 fig.update_layout(
     height=700,
     title_text="Process Robustness: Stability as a Function of Temperature and pH",
-    scene=dict(xaxis_title='Temperature (°C)', yaxis_title='Formulation pH', zaxis_title='Stability (%)'),
-    xaxis2_title='Temperature (°C)', yaxis2_title='Formulation pH',
+    # Use nested dictionaries for scene axis titles
+    scene=dict(
+        xaxis=dict(title='Temperature (°C)'),
+        yaxis=dict(title='Formulation pH'),
+        zaxis=dict(title='Stability (%)')
+    ),
+    # Use nested dictionaries for 2D subplot axis titles
+    xaxis2=dict(title='Temperature (°C)'),
+    yaxis2=dict(title='Formulation pH'),
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
 )
+# --- END: Corrected fig.update_layout block ---
+
 st.plotly_chart(fig, use_container_width=True)
 
 with st.container(border=True):
