@@ -42,9 +42,7 @@ def generate_validation_portfolio_data():
         'Status': ['In Progress', 'At Risk', 'Complete - On Time', 'In Progress', 'On Hold', 'Not Started'],
         'Start Date': [date(2024, 7, 1), date(2024, 5, 15), date(2024, 4, 1), date(2024, 8, 1), date(2025, 1, 1), date(2025, 1, 15)],
         'End Date': [date(2024, 11, 30), date(2024, 10, 31), date(2024, 7, 30), date(2024, 12, 15), date(2025, 3, 31), date(2025, 6, 30)],
-        'Target Completion': [pd.to_datetime(d) for d in ['2024-11-30', '2024-10-15', '2024-07-30', '2024-12-15', '2025-03-31', '2025-06-30']],
-        # NEW: Added effort metric for scenario planning
-        'Effort (Person-Months)': [4.0, 5.5, 3.0, 4.5, 3.0, 6.0]
+        'Target Completion': [pd.to_datetime(d) for d in ['2024-11-30', '2024-10-15', '2024-07-30', '2024-12-15', '2025-03-31', '2025-06-30']]
     }
     df = pd.DataFrame(data)
     df['Start Date'] = pd.to_datetime(df['Start Date'])
