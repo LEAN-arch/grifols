@@ -4,10 +4,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-# --- FIX: Corrected the function name to match utils.py ---
 from utils import generate_improvement_data
-
-# --- END OF FIX ---
 
 st.set_page_config(
     page_title="OpEx Dashboard | Grifols",
@@ -26,9 +23,7 @@ with st.expander("🌐 Managerial Focus: Driving Continuous Improvement"):
     """)
 
 # --- Data Generation ---
-# --- FIX: Call the corrected function name ---
 improvement_df = generate_improvement_data()
-# --- END OF FIX ---
 
 # --- OpEx Program KPIs ---
 st.header("Process Improvement Program KPIs")
