@@ -4,7 +4,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from utils import generate_validation_portfolio_data, generate_program_risk_data
+# FIX: Import the necessary data function for the new KPI
+from utils import generate_validation_portfolio_data, generate_program_risk_data, generate_revalidation_data
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -16,6 +17,9 @@ st.set_page_config(
 # --- Data Loading ---
 portfolio_df = generate_validation_portfolio_data()
 risks_df = generate_program_risk_data()
+# FIX: Load revalidation data to calculate the KPI
+revalidation_df = generate_revalidation_data()
+
 
 # --- Page Title and Header ---
 st.image("https://www.grifols.com/o/grifols-theme/images/logos/logo-grifols.svg", width=250)
@@ -58,7 +62,8 @@ completed_projects_df = portfolio_df[portfolio_df['Status'].str.contains('Comple
 on_time_completion_pct = (completed_projects_df[completed_projects_df['Status'] == 'Complete - On Time'].shape[0] / len(completed_projects_df)) * 100 if not completed_projects_df.empty else 100.0
 projects_at_risk = portfolio_df[portfolio_df['Status'] == 'At Risk'].shape[0]
 high_priority_risks = risks_df[risks_df['Risk Score'] >= 15].shape[0]
-revals_due = 2
+# FIX: Calculate revalidations due dynamically from the data source
+revals_due = revalidation_df[revalidation_df['Status'] == 'Due'].shape[0]
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -129,13 +134,10 @@ with col_gantt:
     fig.update_layout(height=600)
     st.plotly_chart(fig, use_container_width=True)
 
-# --- START: Updated and Corrected Risk Visualization Block ---
 with col_risk:
     st.header("Program Risk Bubble Matrix")
     st.caption("Prioritizing risks based on impact and probability. Color indicates max severity; size indicates volume.")
 
-    # 1. Aggregate risk data for the bubble matrix
-    # Added include_groups=False to address the FutureWarning
     risk_agg = risks_df.groupby(['Impact', 'Probability']).apply(lambda g: pd.Series({
         'Risk Count': len(g),
         'Max Risk Score': g['Risk Score'].max(),
@@ -143,10 +145,8 @@ with col_risk:
                                     for _, row in g.iterrows())
     }), include_groups=False).reset_index()
 
-    # 2. Create the advanced bubble matrix plot
     fig_risk = go.Figure()
 
-    # Add background color shapes for risk levels
     fig_risk.add_shape(type="rect", xref="x", yref="y", x0=0.5, y0=0.5, x1=3.5, y1=3.5,
                       fillcolor="rgba(0, 122, 51, 0.1)", line_color="rgba(0, 122, 51, 0.3)")
     fig_risk.add_shape(type="rect", xref="x", yref="y", x0=3.5, y0=0.5, x1=5.5, y1=3.5,
@@ -156,7 +156,6 @@ with col_risk:
     fig_risk.add_shape(type="rect", xref="x", yref="y", x0=3.5, y0=3.5, x1=5.5, y1=5.5,
                       fillcolor="rgba(218, 41, 28, 0.15)", line_color="rgba(218, 41, 28, 0.4)")
 
-    # Add the scatter plot trace (the bubbles)
     fig_risk.add_trace(go.Scatter(
         x=risk_agg['Probability'],
         y=risk_agg['Impact'],
@@ -172,19 +171,16 @@ with col_risk:
         ),
         text=risk_agg['Risk Count'],
         textfont=dict(color='black', size=14),
-        # FIX: Use customdata to hold the original risk count for the hovertemplate
         customdata=risk_agg['Risk Count'],
         hovertext=risk_agg['Risk Details'],
         hovertemplate=(
             "<b>Impact:</b> %{y}<br>"
             "<b>Probability:</b> %{x}<br>"
-            # FIX: Reference customdata instead of the scaled marker.size
             "<b>Risk Count:</b> %{customdata}<br>"
             "<hr><b>Risks in this Category:</b><br>%{hovertext}<extra></extra>"
         )
     ))
     
-    # 3. Final layout styling
     fig_risk.update_layout(
         title="Risk Matrix: Severity (Color), Volume (Size), and Impact",
         xaxis_title="Probability",
@@ -211,7 +207,6 @@ with col_risk:
     )
 
     st.plotly_chart(fig_risk, use_container_width=True)
-# --- END: Updated and Corrected Risk Visualization Block ---
     
 st.divider()
 
