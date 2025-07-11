@@ -1,0 +1,21 @@
+# Core Application & Data Handling
+streamlit
+pandas
+# Pin NumPy to a version < 2.0 to ensure maximum stability and
+# avoid potential breaking changes with older, compiled dependencies.
+numpy<2.0
+
+# Visualization & Scientific Computing
+plotly
+scipy
+
+# Note: The following libraries are no longer required for the
+# Grifols Senior Manager role and have been removed to create a
+# leaner, more robust application:
+# - tensorflow
+# - lightgbm
+# - shap
+# - numba
+# - statsmodels
+# - scikit-learn
+# - matplotlib
