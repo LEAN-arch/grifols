@@ -4,94 +4,103 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from utils import generate_opex_data
+# --- FIX: Corrected the function name to match utils.py ---
+from utils import generate_improvement_data
+
+# --- END OF FIX ---
 
 st.set_page_config(
     page_title="OpEx Dashboard | Grifols",
     layout="wide"
 )
 
-st.title("🏆 Operational Excellence (OpEx) Dashboard")
-st.markdown("### Directing and tracking process improvement initiatives using Lean, 5S, and Standardization methodologies.")
+st.title("🚀 Process Improvement Tracker")
+st.markdown("### Directing and tracking initiatives to enhance the efficiency, compliance, and robustness of our validation and manufacturing processes.")
 
-with st.expander("🌐 My Role as Manager: Driving Continuous Improvement", expanded=True):
+with st.expander("🌐 Managerial Focus: Driving Continuous Improvement"):
     st.markdown("""
-    A core part of my responsibility as Senior Manager is to **"drive and validate process improvements in manufacturing"** and to demonstrate expertise with **"Lean, 5S, [and] Operational Excellence."** This dashboard serves as the central hub for managing my department's OpEx program.
-
-    - **Strategic Focus:** It allows me to translate strategic goals (e.g., "reduce validation cycle time") into specific, actionable initiatives for my team.
+    A core part of my responsibility as Senior Manager is to **"drive and validate process improvements in manufacturing"** and to demonstrate expertise with methodologies like **"Lean, 5S, [and] Operational Excellence."** This dashboard serves as the central hub for managing my department's OpEx program.
+    - **Strategic Focus:** It allows me to translate strategic goals (e.g., "reduce validation cycle time") into a portfolio of specific, actionable initiatives for my team.
     - **Visibility & Accountability:** This platform provides clear visibility into the progress of each initiative and holds the project leads accountable for their timelines and deliverables.
-    - **Demonstrating Value:** It helps me showcase the tangible benefits of our improvement efforts to senior leadership, linking our projects to key business metrics like efficiency, compliance, and cost savings.
-    - **Fostering Culture:** By actively managing and celebrating these projects, I help to build a "creative, organized, self-motivated, perceptive and innovative" culture within my team, as required by my role.
+    - **Demonstrating Value:** It helps me showcase the tangible benefits of our improvement efforts to senior leadership, linking our projects to key business metrics.
     """)
 
 # --- Data Generation ---
-opex_df = generate_opex_data()
+# --- FIX: Call the corrected function name ---
+improvement_df = generate_improvement_data()
+# --- END OF FIX ---
 
 # --- OpEx Program KPIs ---
-st.header("Operational Excellence Program KPIs")
-total_initiatives = len(opex_df)
-completed_initiatives = opex_df[opex_df['Status'] == 'Complete'].shape[0]
-inprogress_initiatives = opex_df[opex_df['Status'] == 'In Progress'].shape[0]
+st.header("Process Improvement Program KPIs")
+total_initiatives = len(improvement_df)
+completed_initiatives = improvement_df[improvement_df['Status'] == 'Complete'].shape[0]
+inprogress_initiatives = improvement_df[improvement_df['Status'] == 'In Progress'].shape[0]
+total_budget_allocated = improvement_df['Budget ($K)'].sum()
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Active Initiatives", total_initiatives)
 col2.metric("Completed Initiatives (YTD)", completed_initiatives)
 col3.metric("Initiatives In Progress", inprogress_initiatives)
+col4.metric("Total Budget Allocated", f"${total_budget_allocated}K")
 
 st.divider()
 
-# --- Initiative Kanban Board ---
-st.header("Initiative Status Kanban Board")
-st.caption("A visual overview of all OpEx initiatives, categorized by their current status.")
+# --- Enhanced Visualization: Impact vs. Effort Matrix ---
+st.header("Initiative Prioritization Matrix")
+st.caption("Visualizing all initiatives on an Impact vs. Effort matrix to strategically focus resources.")
 
-# Separate initiatives by status for the Kanban view
-not_started_df = pd.DataFrame() # Add if needed
-in_progress_df = opex_df[opex_df['Status'] == 'In Progress']
-complete_df = opex_df[opex_df['Status'] == 'Complete']
+impact_map = {'Low': 1, 'Medium': 2, 'High': 3}
+effort_map = {'Low': 1, 'Medium': 2, 'High': 3}
+plot_df = improvement_df.copy()
+plot_df['Impact_Num'] = plot_df['Impact'].map(impact_map)
+plot_df['Effort_Num'] = plot_df['Effort'].map(effort_map)
 
-k_col1, k_col2, k_col3 = st.columns(3)
+fig = px.scatter(
+    plot_df, x='Effort_Num', y='Impact_Num', size='Budget ($K)', color='Status',
+    hover_name='Initiative Name', text='Initiative ID', size_max=60,
+    color_discrete_map={
+        'In Progress': '#007A33', 'Complete': '#0033A0',
+        'Planned': '#6C6F70', 'At Risk': '#DA291C'
+    }
+)
 
-with k_col1:
-    st.subheader("📝 Not Started")
-    st.info("No initiatives currently in this stage.")
-    # Example of how to populate:
-    # for index, row in not_started_df.iterrows():
-    #     st.info(f"**{row['Initiative Name']}**\n\n*Lead: {row['Lead']}*")
+fig.add_vline(x=2.5, line_dash="dash")
+fig.add_hline(y=2.5, line_dash="dash")
+fig.add_annotation(x=1.5, y=3.2, text="<b>Quick Wins</b>", showarrow=False, font_size=14, font_color="green")
+fig.add_annotation(x=1.5, y=1.8, text="Fill-Ins", showarrow=False)
+fig.add_annotation(x=3.2, y=3.2, text="<b>Strategic Initiatives</b>", showarrow=False, font_size=14, font_color="blue")
+fig.add_annotation(x=3.2, y=1.8, text="Thankless Tasks", showarrow=False)
 
-with k_col2:
-    st.subheader("🚀 In Progress")
-    for index, row in in_progress_df.iterrows():
-        st.warning(f"**{row['Initiative Name']}**\n\n*Type: {row['Type']} | Lead: {row['Lead']}*")
-
-with k_col3:
-    st.subheader("✅ Complete")
-    for index, row in complete_df.iterrows():
-        st.success(f"**{row['Initiative Name']}**\n\n*Type: {row['Type']} | Lead: {row['Lead']}*")
+fig.update_layout(
+    height=500, title='Impact vs. Effort Portfolio View',
+    xaxis_title='Effort Required', yaxis_title='Strategic Impact',
+    xaxis=dict(tickvals=list(effort_map.values()), ticktext=list(effort_map.keys())),
+    yaxis=dict(tickvals=list(impact_map.values()), ticktext=list(impact_map.keys()))
+)
+fig.update_traces(textposition='top center')
+st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
 # --- Detailed Initiative Tracker ---
 st.header("Detailed Initiative Tracker")
-st.caption("A comprehensive list of all operational excellence projects, their scope, and status.")
+st.caption("A comprehensive list of all process improvement projects, their drivers, and progress.")
 
 st.dataframe(
-    opex_df,
-    use_container_width=True,
-    hide_index=True,
+    improvement_df,
+    use_container_width=True, hide_index=True,
     column_config={
-        "Target Completion": st.column_config.DateColumn("Target Date", format="YYYY-MM-DD")
+        "Progress (%)": st.column_config.ProgressColumn("Progress", min_value=0, max_value=100, format="%d%%"),
+        "Budget ($K)": st.column_config.NumberColumn("Budget", format="$%dK")
     }
 )
 
-with st.expander("📝 My Role as Manager: Directing OpEx Activities"):
+with st.container(border=True):
+    st.header("Managerial Analysis & Action Plan")
     st.markdown("""
-    This dashboard provides me with the necessary tools to effectively lead our continuous improvement program.
-
-    1.  **Project Oversight:** I can quickly see that our two "In Progress" initiatives are the `Reduce Re-work in Doc Review` and `Standardize Tech Transfer Template` projects. I will follow up with the leads, David L. and Anna K., during our next 1-on-1 meetings to check on their progress against the target completion dates.
-
-    2.  **Strategic Alignment:** The `Reduce Re-work` project is a Lean initiative aimed at reducing waste, a core principle of operational excellence. The `Standardize Tech Transfer Template` project is a crucial standardization effort that will improve the efficiency and consistency of all future tech transfer projects my team undertakes. Both are perfectly aligned with our strategic goals.
-
-    3.  **Celebrating Success:** The `5S Implementation` led by Maria S. is complete. It's my responsibility as a manager to recognize and celebrate this achievement with the team and to communicate its positive impact (improved lab audit scores) to leadership. This reinforces the value of our OpEx program and motivates the team.
-
-    4.  **Future Initiatives:** By analyzing data from our other dashboards (e.g., a long cycle time for deviations in the **CPV Dashboard**), I can identify opportunities for new OpEx projects and add them to our pipeline, ensuring our improvement efforts are always focused on the most impactful areas.
+    - **Strategic Prioritization:** The **Impact vs. Effort Matrix** is my primary tool for strategic planning. It immediately shows that the **'Reduce Re-work in Doc Review'** project is a high-impact, medium-effort initiative, making it a key focus. The **'5S Implementation'** was a perfect "Quick Win" and its completion is a success story to share.
+    
+    - **Resource Planning:** The **'Automate CPV Data Trending'** is a high-impact, high-effort "Strategic Initiative." Its large bubble indicates a significant budget, which I have already secured. Knowing its high effort, I will ensure Anna K. has protected time and the necessary support from IT to ensure its success when we kick it off.
+    
+    - **Performance Monitoring:** In the detailed tracker, I can see the **'Standardize Tech Transfer Template'** is only at 40% progress, while the doc review project is at 75%. In my next 1-on-1 with Anna K., I will use this data to discuss any potential roadblocks or resource needs for the template project to ensure it stays on track.
     """)
