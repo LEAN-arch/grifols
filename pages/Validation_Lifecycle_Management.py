@@ -23,11 +23,13 @@ with st.expander("🌐 My Role as Manager: Ensuring Ongoing Compliance", expande
     - **Audit Readiness:** This dashboard is designed to be presented during an audit. It allows me to "describe and defend" our validation program by clearly showing how we track our systems, justify our revalidation schedule, and maintain a continuous state of control.
     """)
 
-# --- Data Generation with Risk Scoring ---
+# --- Data Generation and Correction ---
 revalidation_df = generate_revalidation_data()
-# Add risk score based on complexity and impact
-revalidation_df['Risk Score'] = [9, 7, 5, 8] # High, Medium-High, Low, High
-revalidation_df['Complexity'] = ['High', 'High', 'Low', 'High']
+
+# FIX: Ensure date columns are in the correct pandas datetime format before any operations
+revalidation_df['Last Validation Date'] = pd.to_datetime(revalidation_df['Last Validation Date'])
+revalidation_df['Next Assessment Due'] = pd.to_datetime(revalidation_df['Next Assessment Due'])
+
 
 # --- KPIs for Lifecycle Management ---
 st.header("Program Compliance Status")
@@ -60,9 +62,8 @@ def highlight_status(row):
         style = 'background-color: #FFF3CD'
     return [style] * len(row)
 
-# Convert to timezone-unaware for calculations
-revalidation_df['Last Validation Date'] = revalidation_df['Last Validation Date'].dt.tz_localize(None)
-revalidation_df['Next Assessment Due'] = revalidation_df['Next Assessment Due'].dt.tz_localize(None)
+# FIX: The buggy tz_localize lines that caused the error have been removed,
+# as the columns are now correctly formatted as timezone-naive datetimes above.
 
 # Use st.data_editor to get selected rows
 selection = st.data_editor(
