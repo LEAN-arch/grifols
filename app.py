@@ -4,7 +4,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-# FIX: Import the necessary data function for the new KPI
 from utils import generate_validation_portfolio_data, generate_program_risk_data, generate_revalidation_data
 
 # --- Page Configuration ---
@@ -14,10 +13,16 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- Session State Initialization for Action Log ---
+if 'action_log' not in st.session_state:
+    st.session_state.action_log = pd.DataFrame(columns=[
+        "Action Item", "Source Dashboard", "Owner", "Due Date", "Status", "Notes"
+    ])
+
+
 # --- Data Loading ---
 portfolio_df = generate_validation_portfolio_data()
 risks_df = generate_program_risk_data()
-# FIX: Load revalidation data to calculate the KPI
 revalidation_df = generate_revalidation_data()
 
 
@@ -62,7 +67,6 @@ completed_projects_df = portfolio_df[portfolio_df['Status'].str.contains('Comple
 on_time_completion_pct = (completed_projects_df[completed_projects_df['Status'] == 'Complete - On Time'].shape[0] / len(completed_projects_df)) * 100 if not completed_projects_df.empty else 100.0
 projects_at_risk = portfolio_df[portfolio_df['Status'] == 'At Risk'].shape[0]
 high_priority_risks = risks_df[risks_df['Risk Score'] >= 15].shape[0]
-# FIX: Calculate revalidations due dynamically from the data source
 revals_due = revalidation_df[revalidation_df['Status'] == 'Due'].shape[0]
 
 col1, col2, col3, col4 = st.columns(4)
